@@ -1,35 +1,19 @@
-"""Tests for the command-line interface."""
+"""Tests for validation of command-line options."""
 
-import io
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
 
-from cli import main
+from helpers import run_cli
 
 USAGE_ERROR_CODE = 2
 
 
-def run_cli(*argv):
-    """Run the CLI and return (exit code, stdout, stderr)."""
-    out, err = io.StringIO(), io.StringIO()
-    code = 0
-    with redirect_stdout(out), redirect_stderr(err):
-        try:
-            code = main(list(argv))
-        except SystemExit as exit_info:
-            code = exit_info.code
-    return code, out.getvalue(), err.getvalue()
-
-
 class CliTests(unittest.TestCase):
-    """End-to-end tests of the command-line interface."""
+    """Usage errors reported by the command-line interface."""
 
-    def test_prints_key_value_pairs(self):
-        code, out, _ = run_cli("-p", "express", "-d", "2", "-f", "dev")
-        self.assertEqual(code, 0)
-        self.assertIn("package: express", out)
-        self.assertIn("max_depth: 2", out)
-        self.assertIn("filter: dev", out)
+    def test_missing_package(self):
+        code, _, err = run_cli()
+        self.assertEqual(code, USAGE_ERROR_CODE)
+        self.assertIn("--package", err)
 
     def test_depth_out_of_range(self):
         code, _, err = run_cli("-p", "express", "-d", "0")

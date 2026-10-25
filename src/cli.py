@@ -1,6 +1,7 @@
 """Command-line interface of the dependency graph visualizer."""
 
 import argparse
+import sys
 from typing import List, Optional
 
 from config import (
@@ -12,8 +13,12 @@ from config import (
     validate_package,
     validate_repo,
 )
+from registry import PackageInfo, RegistryError, get_direct_dependencies
 
 EXIT_OK = 0
+EXIT_FAILURE = 1
+INDENT = "  "
+
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,24 +63,38 @@ def build_config(args: argparse.Namespace) -> Config:
     )
 
 
-def format_config(config: Config) -> List[str]:
-    """Render configuration as a list of 'key: value' lines."""
-    return [
-        f"package: {config.package}",
-        f"repo: {config.repo}",
-        f"test_mode: {str(config.test_mode).lower()}",
-        f"max_depth: {config.max_depth}",
-        f"filter: {config.filter_substring}",
-    ]
+def fetch_package_info(config: Config) -> PackageInfo:
+    """Retrieve direct dependencies of the package from the repository."""
+    if config.test_mode:
+        raise RegistryError("test repository mode is not supported yet")
+    return get_direct_dependencies(config.repo, config.package)
+
+
+def format_dependencies(info: PackageInfo) -> List[str]:
+    """Render direct dependencies as lines of text."""
+    header = f"Direct dependencies of {info.name}@{info.version}:"
+    if not info.dependencies:
+        return [f"{header} none"]
+    lines = [header]
+    for name in sorted(info.dependencies):
+        lines.append(f"{INDENT}{name}: {info.dependencies[name]}")
+    return lines
+
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """Parse options, validate them and print them as key-value pairs."""
+    """Parse options and print direct dependencies of the package."""
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
         config = build_config(args)
     except ConfigError as error:
         parser.error(str(error))
-    print("\n".join(format_config(config)))
+    try:
+        info = fetch_package_info(config)
+    except RegistryError as error:
+        print(f"depviz: error: {error}", file=sys.stderr)
+        return EXIT_FAILURE
+    print("\n".join(format_dependencies(info)))
     return EXIT_OK
+

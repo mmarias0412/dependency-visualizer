@@ -23,10 +23,10 @@ def run_cli(*argv):
     return code, out.getvalue(), err.getvalue()
 
 
-class _Handler(BaseHTTPRequestHandler):
+class RegistryHandler(BaseHTTPRequestHandler):
     """Serve canned responses taken from the server's routes."""
 
-    def do_GET(self):
+    def handle_get(self):
         """Answer a GET request using the routes table."""
         status, body = self.server.routes.get(
             self.path, (HTTP_NOT_FOUND, b"{}")
@@ -40,11 +40,14 @@ class _Handler(BaseHTTPRequestHandler):
         """Silence request logging."""
 
 
+RegistryHandler.do_GET = RegistryHandler.handle_get
+
+
 class MockRegistry:
     """Local HTTP server that imitates an npm registry."""
 
     def __init__(self, routes):
-        self._server = HTTPServer((LOCALHOST, 0), _Handler)
+        self._server = HTTPServer((LOCALHOST, 0), RegistryHandler)
         self._server.routes = routes
         self._thread = threading.Thread(target=self._server.serve_forever)
 

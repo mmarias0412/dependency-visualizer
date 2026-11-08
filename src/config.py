@@ -94,3 +94,17 @@ def validate_filter(substring: str) -> str:
     if any(char.isspace() for char in substring):
         raise ConfigError("filter substring must not contain whitespace")
     return substring
+
+
+def matches_filter(name: str, substring: str) -> bool:
+    """Tell whether a name contains a non-empty filter substring."""
+    return bool(substring) and substring in name
+
+
+def validate_package_not_filtered(package: str, substring: str) -> None:
+    """Check that the analyzed package is not excluded by the filter."""
+    if matches_filter(package, substring):
+        raise ConfigError(
+            f"package '{package}' contains the filter substring "
+            f"'{substring}' and would be excluded from the analysis"
+        )

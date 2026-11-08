@@ -2,7 +2,7 @@
 
 import unittest
 
-from helpers import run_cli
+from helpers import example, run_cli
 
 USAGE_ERROR_CODE = 2
 
@@ -24,6 +24,12 @@ class CliTests(unittest.TestCase):
         code, _, err = run_cli("-p", "A", "-t", "-r", "nofile.txt")
         self.assertEqual(code, USAGE_ERROR_CODE)
         self.assertIn("not found", err)
+
+    def test_filter_excludes_analyzed_package(self):
+        repo = example("diamond.txt")
+        code, _, err = run_cli("-p", "A", "-t", "-r", repo, "-f", "A")
+        self.assertEqual(code, USAGE_ERROR_CODE)
+        self.assertIn("excluded", err)
 
 
 if __name__ == "__main__":

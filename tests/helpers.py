@@ -1,14 +1,23 @@
 """Shared helpers for tests: CLI runner and a mock npm registry."""
 
 import io
+import os
 import threading
 from contextlib import redirect_stderr, redirect_stdout
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from cli import main
 
+EXAMPLES_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples"
+)
 LOCALHOST = "127.0.0.1"
 HTTP_NOT_FOUND = 404
+
+
+def example(name):
+    """Return the path of a bundled test repository."""
+    return os.path.join(EXAMPLES_DIR, name)
 
 
 def run_cli(*argv):

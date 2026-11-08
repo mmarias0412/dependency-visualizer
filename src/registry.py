@@ -5,8 +5,11 @@ import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, List
 from urllib.parse import quote
+
+from errors import RepositoryError
+from graph import DependencyProvider
 
 REQUEST_TIMEOUT_SECONDS = 10
 HTTP_NOT_FOUND = 404
@@ -15,7 +18,7 @@ DEPENDENCIES_FIELD = "dependencies"
 USER_AGENT = "depviz"
 
 
-class RegistryError(RuntimeError):
+class RegistryError(RepositoryError):
     """Raised when package data cannot be retrieved or understood."""
 
 
@@ -98,3 +101,13 @@ def get_direct_dependencies(repo: str, package: str) -> PackageInfo:
     """Fetch the direct dependencies of the latest package version."""
     url = build_manifest_url(repo, package)
     return parse_manifest(fetch_json(url, package), package)
+
+
+def make_registry_provider(repo: str) -> DependencyProvider:
+    """Create a dependency provider that queries an npm registry."""
+
+    def provider(name: str) -> List[str]:
+        """Return sorted names of direct dependencies of a package."""
+        return sorted(get_direct_dependencies(repo, name).dependencies)
+
+    return provider

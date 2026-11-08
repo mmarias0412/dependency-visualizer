@@ -11,14 +11,17 @@ from config import (
     validate_depth,
     validate_filter,
     validate_package,
+    validate_package_not_filtered,
     validate_repo,
 )
-from registry import PackageInfo, RegistryError, get_direct_dependencies
+from errors import RepositoryError
+from file_repo import make_file_provider
+from graph import DependencyProvider, Graph, build_graph
+from registry import make_registry_provider
+from report import format_graph
 
 EXIT_OK = 0
 EXIT_FAILURE = 1
-INDENT = "  "
-
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -54,36 +57,36 @@ def build_parser() -> argparse.ArgumentParser:
 
 def build_config(args: argparse.Namespace) -> Config:
     """Validate parsed arguments and build the Config object."""
-    return Config(
+    config = Config(
         package=validate_package(args.package, args.test_mode),
         repo=validate_repo(args.repo, args.test_mode),
         test_mode=args.test_mode,
         max_depth=validate_depth(args.max_depth),
         filter_substring=validate_filter(args.filter_substring),
     )
+    validate_package_not_filtered(config.package, config.filter_substring)
+    return config
 
 
-def fetch_package_info(config: Config) -> PackageInfo:
-    """Retrieve direct dependencies of the package from the repository."""
+def create_provider(config: Config) -> DependencyProvider:
+    """Choose where dependencies come from: a test file or a registry."""
     if config.test_mode:
-        raise RegistryError("test repository mode is not supported yet")
-    return get_direct_dependencies(config.repo, config.package)
+        return make_file_provider(config.repo, config.package)
+    return make_registry_provider(config.repo)
 
 
-def format_dependencies(info: PackageInfo) -> List[str]:
-    """Render direct dependencies as lines of text."""
-    header = f"Direct dependencies of {info.name}@{info.version}:"
-    if not info.dependencies:
-        return [f"{header} none"]
-    lines = [header]
-    for name in sorted(info.dependencies):
-        lines.append(f"{INDENT}{name}: {info.dependencies[name]}")
-    return lines
-
+def collect_graph(config: Config) -> Graph:
+    """Build the dependency graph of the requested package."""
+    return build_graph(
+        config.package,
+        create_provider(config),
+        config.max_depth,
+        config.filter_substring,
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """Parse options and print direct dependencies of the package."""
+    """Parse options, build the dependency graph and print it."""
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
@@ -91,10 +94,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     except ConfigError as error:
         parser.error(str(error))
     try:
-        info = fetch_package_info(config)
-    except RegistryError as error:
+        graph = collect_graph(config)
+    except RepositoryError as error:
         print(f"depviz: error: {error}", file=sys.stderr)
         return EXIT_FAILURE
-    print("\n".join(format_dependencies(info)))
+    print("\n".join(format_graph(graph, config.max_depth)))
     return EXIT_OK
-

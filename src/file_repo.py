@@ -72,10 +72,32 @@ def make_file_provider(path: str, root: str) -> DependencyProvider:
     """Create a dependency provider backed by a test repository file."""
     repo = load_repo(path)
     if root not in repo:
-        raise FileRepoError(f"package '{root}' not found in test repository")
+        raise _not_found(root)
 
     def provider(name: str) -> List[str]:
         """Return direct dependencies; undeclared packages have none."""
         return sorted(repo.get(name, []))
 
     return provider
+
+
+def make_reverse_provider(path: str, root: str) -> DependencyProvider:
+    """Create a provider that lists the packages depending on a package."""
+    repo = load_repo(path)
+    dependents: TestRepo = {}
+    for name, dependencies in repo.items():
+        for dependency in dependencies:
+            dependents.setdefault(dependency, []).append(name)
+    if root not in repo and root not in dependents:
+        raise _not_found(root)
+
+    def provider(name: str) -> List[str]:
+        """Return sorted names of the direct dependents of a package."""
+        return sorted(dependents.get(name, []))
+
+    return provider
+
+
+def _not_found(root: str) -> FileRepoError:
+    """Build the error for a package missing from the test repository."""
+    return FileRepoError(f"package '{root}' not found in test repository")

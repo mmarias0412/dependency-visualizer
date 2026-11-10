@@ -31,6 +31,7 @@ class Config:
     test_mode: bool
     max_depth: int
     filter_substring: str
+    reverse: bool = False
 
 
 def validate_package(name: str, test_mode: bool) -> str:
@@ -108,3 +109,13 @@ def validate_package_not_filtered(package: str, substring: str) -> None:
             f"package '{package}' contains the filter substring "
             f"'{substring}' and would be excluded from the analysis"
         )
+
+
+def validate_reverse(reverse: bool, test_mode: bool) -> bool:
+    """Check that reverse dependencies are requested in test mode."""
+    if reverse and not test_mode:
+        raise ConfigError(
+            "reverse dependencies need --test-mode: an npm registry "
+            "cannot list the packages that depend on a package"
+        )
+    return reverse

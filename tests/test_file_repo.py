@@ -8,6 +8,7 @@ from file_repo import (
     FileRepoError,
     load_repo,
     make_file_provider,
+    make_reverse_provider,
     parse_repo,
 )
 
@@ -77,6 +78,39 @@ class FileTests(unittest.TestCase):
             path = self.write_repo(directory, "A: B\n")
             with self.assertRaises(FileRepoError) as context:
                 make_file_provider(path, "X")
+        self.assertIn("'X' not found", str(context.exception))
+
+
+class ReverseTests(unittest.TestCase):
+    """Provider of the packages that depend on a package."""
+
+    def provider_for(self, text, root):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "repo.txt")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(text)
+            return make_reverse_provider(path, root)
+
+    def test_lists_sorted_dependents(self):
+        provider = self.provider_for("A: C\nB: C D\nC:\n", "C")
+        self.assertEqual(provider("C"), ["A", "B"])
+        self.assertEqual(provider("D"), ["B"])
+
+    def test_package_nobody_depends_on(self):
+        provider = self.provider_for("A: B\n", "A")
+        self.assertEqual(provider("A"), [])
+
+    def test_package_known_only_as_dependency(self):
+        provider = self.provider_for("A: Z\n", "Z")
+        self.assertEqual(provider("Z"), ["A"])
+
+    def test_self_dependency_is_listed(self):
+        provider = self.provider_for("A: A\n", "A")
+        self.assertEqual(provider("A"), ["A"])
+
+    def test_unknown_package(self):
+        with self.assertRaises(FileRepoError) as context:
+            self.provider_for("A: B\n", "X")
         self.assertIn("'X' not found", str(context.exception))
 
 

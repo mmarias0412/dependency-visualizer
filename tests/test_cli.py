@@ -31,6 +31,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, USAGE_ERROR_CODE)
         self.assertIn("excluded", err)
 
+    def test_reverse_mode_requires_test_mode(self):
+        code, _, err = run_cli("-p", "express", "--reverse")
+        self.assertEqual(code, USAGE_ERROR_CODE)
+        self.assertIn("--test-mode", err)
+
 
 if __name__ == "__main__":
     unittest.main()

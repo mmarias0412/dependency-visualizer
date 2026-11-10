@@ -13,12 +13,13 @@ from config import (
     validate_package,
     validate_package_not_filtered,
     validate_repo,
+    validate_reverse,
 )
 from errors import RepositoryError
-from file_repo import make_file_provider
+from file_repo import make_file_provider, make_reverse_provider
 from graph import DependencyProvider, Graph, build_graph
 from registry import make_registry_provider
-from report import format_graph
+from report import format_graph, format_reverse_graph
 
 EXIT_OK = 0
 EXIT_FAILURE = 1
@@ -52,6 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
         "-f", "--filter", default="", dest="filter_substring",
         help="skip packages whose name contains this substring",
     )
+    parser.add_argument(
+        "-R", "--reverse", action="store_true",
+        help="show the packages that depend on the package "
+             "(needs --test-mode)",
+    )
     return parser
 
 
@@ -63,16 +69,26 @@ def build_config(args: argparse.Namespace) -> Config:
         test_mode=args.test_mode,
         max_depth=validate_depth(args.max_depth),
         filter_substring=validate_filter(args.filter_substring),
+        reverse=validate_reverse(args.reverse, args.test_mode),
     )
     validate_package_not_filtered(config.package, config.filter_substring)
     return config
 
 
 def create_provider(config: Config) -> DependencyProvider:
-    """Choose where dependencies come from: a test file or a registry."""
-    if config.test_mode:
-        return make_file_provider(config.repo, config.package)
-    return make_registry_provider(config.repo)
+    """Choose where relations between packages come from."""
+    if not config.test_mode:
+        return make_registry_provider(config.repo)
+    if config.reverse:
+        return make_reverse_provider(config.repo, config.package)
+    return make_file_provider(config.repo, config.package)
+
+
+def render_graph(config: Config, graph: Graph) -> List[str]:
+    """Render the graph as dependencies or as reverse dependencies."""
+    if config.reverse:
+        return format_reverse_graph(graph, config.max_depth)
+    return format_graph(graph, config.max_depth)
 
 
 def collect_graph(config: Config) -> Graph:
@@ -98,5 +114,5 @@ def main(argv: Optional[List[str]] = None) -> int:
     except RepositoryError as error:
         print(f"depviz: error: {error}", file=sys.stderr)
         return EXIT_FAILURE
-    print("\n".join(format_graph(graph, config.max_depth)))
+    print("\n".join(render_graph(config, graph)))
     return EXIT_OK

@@ -6,6 +6,9 @@ from typing import List, Optional
 
 from config import (
     DEFAULT_MAX_DEPTH,
+    FORMAT_PLANTUML,
+    FORMAT_TEXT,
+    OUTPUT_FORMATS,
     Config,
     ConfigError,
     validate_depth,
@@ -18,6 +21,7 @@ from config import (
 from errors import RepositoryError
 from file_repo import make_file_provider, make_reverse_provider
 from graph import DependencyProvider, Graph, build_graph
+from plantuml import format_plantuml
 from registry import make_registry_provider
 from report import format_graph, format_reverse_graph
 
@@ -58,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="show the packages that depend on the package "
              "(needs --test-mode)",
     )
+    parser.add_argument(
+        "--format", choices=OUTPUT_FORMATS, default=FORMAT_PLANTUML,
+        dest="output_format",
+        help="output format: PlantUML diagram or plain text "
+             "(default: %(default)s)",
+    )
     return parser
 
 
@@ -70,6 +80,7 @@ def build_config(args: argparse.Namespace) -> Config:
         max_depth=validate_depth(args.max_depth),
         filter_substring=validate_filter(args.filter_substring),
         reverse=validate_reverse(args.reverse, args.test_mode),
+        output_format=args.output_format,
     )
     validate_package_not_filtered(config.package, config.filter_substring)
     return config
@@ -85,10 +96,12 @@ def create_provider(config: Config) -> DependencyProvider:
 
 
 def render_graph(config: Config, graph: Graph) -> List[str]:
-    """Render the graph as dependencies or as reverse dependencies."""
-    if config.reverse:
-        return format_reverse_graph(graph, config.max_depth)
-    return format_graph(graph, config.max_depth)
+    """Render the graph in the output format chosen by the user."""
+    if config.output_format == FORMAT_TEXT:
+        if config.reverse:
+            return format_reverse_graph(graph, config.max_depth)
+        return format_graph(graph, config.max_depth)
+    return format_plantuml(graph, config.max_depth, config.reverse)
 
 
 def collect_graph(config: Config) -> Graph:

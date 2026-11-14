@@ -8,6 +8,9 @@ from urllib.parse import urlparse
 
 DEFAULT_REPO_URL = "https://registry.npmjs.org"
 DEFAULT_MAX_DEPTH = 3
+FORMAT_PLANTUML = "plantuml"
+FORMAT_TEXT = "text"
+OUTPUT_FORMATS = (FORMAT_PLANTUML, FORMAT_TEXT)
 MIN_DEPTH = 1
 MAX_DEPTH = 100
 MAX_NAME_LENGTH = 214
@@ -32,6 +35,7 @@ class Config:
     max_depth: int
     filter_substring: str
     reverse: bool = False
+    output_format: str = FORMAT_PLANTUML
 
 
 def validate_package(name: str, test_mode: bool) -> str:

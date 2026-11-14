@@ -39,7 +39,7 @@ class GraphTests(unittest.TestCase):
 
     def run_graph(self, routes, *options):
         with MockRegistry(routes) as repo:
-            return run_cli("-r", repo, *options)
+            return run_cli("-r", repo, "--format", "text", *options)
 
     def test_transitive_dependencies(self):
         routes = {
@@ -100,6 +100,25 @@ class GraphTests(unittest.TestCase):
         code, _, err = self.run_graph(routes, "-p", "a")
         self.assertEqual(code, FAILURE_CODE)
         self.assertIn("package 'b' not found", err)
+
+
+class PlantumlTests(unittest.TestCase):
+    """PlantUML output for registry packages."""
+
+    def test_names_with_special_characters_are_quoted(self):
+        routes = {
+            "/@babel%2Fcore/latest": ok(
+                manifest(dependencies={"body-parser": "^1"})
+            ),
+            "/body-parser/latest": ok(manifest()),
+        }
+        with MockRegistry(routes) as repo:
+            code, out, _ = run_cli("-p", "@babel/core", "-r", repo)
+        self.assertEqual(code, 0)
+        lines = out.splitlines()
+        self.assertIn('rectangle "@babel/core" as p0 <<root>>', lines)
+        self.assertIn('rectangle "body-parser" as p1', lines)
+        self.assertIn("p0 --> p1", lines)
 
 
 class ErrorTests(unittest.TestCase):
